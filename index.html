@@ -1,0 +1,336 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkyCast - Weather Dashboard</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 30px 15px;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      color: #192344;
+      background: linear-gradient(135deg, #eaf0ff, #f5f8fc);
+    }
+    .container {
+      max-width: 750px;
+      margin: 30px auto;
+      padding: 30px;
+      border-radius: 24px;
+      background: white;
+      box-shadow: 0 15px 45px #263a6715;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid #e6eaf3;
+      padding-bottom: 20px;
+    }
+    header h2 { margin: 0; color: #5266df; }
+    .intro { padding: 25px 0; }
+    .intro h1 { font-size: clamp(30px, 6vw, 45px); margin: 8px 0; }
+    .intro h1 span { color: #5266df; }
+    .muted { color: #7b879f; line-height: 1.6; }
+    form {
+      display: flex;
+      gap: 10px;
+      margin: 20px 0;
+    }
+    input {
+      flex: 1;
+      width: 50%;
+      min-width: 0;
+      padding: 14px;
+      border: 1px solid #dce2ef;
+      border-radius: 12px;
+      font-size: 16px;
+    }
+    button {
+      padding: 13px 20px;
+      border: 0;
+      border-radius: 12px;
+      color: white;
+      background: #5266df;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:disabled { opacity: .6; }
+    #status { min-height: 24px; color: #68758d; }
+    .weather {
+      margin-top: 20px;
+      padding: 25px;
+      border-radius: 20px;
+      color: white;
+      background: linear-gradient(135deg, #5266df, #8589ed);
+    }
+    .weather h2 { margin: 0; font-size: 26px; }
+    .temperature { font-size: 65px; font-weight: bold; margin: 15px 0; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .metric {
+      padding: 18px;
+      border-radius: 14px;
+      background: #ffffff20;
+    }
+    .metric strong { display: block; font-size: 24px; margin-top: 10px; }
+    .suggestions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; }
+    .suggestions button { color: #5266df; background: #edf0ff; }
+    footer {
+      margin-top: 30px;
+      padding-top: 15px;
+      border-top: 1px solid #e6eaf3;
+      color: #7b879f;
+      font-size: 13px;
+    }
+    a { color: inherit; }
+    [hidden] { display: none !important; }
+    @media (max-width: 480px) {
+      .container { padding: 20px; margin: 5px auto; }
+      form { flex-wrap: wrap; }
+      input { width: 100%; flex-basis: 60%; }
+      form button { flex: 1; }
+      .temperature { font-size: 52px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h2>✦ SkyCast</h2>
+      <small>LIVE WEATHER</small>
+    </header>
+
+    <section class="intro">
+      <p style="color:#5266df;font-weight:bold">YOUR WEATHER, AT A GLANCE</p>
+      <h1>Forecast for<br><span>where you are.</span></h1>
+      <p class="muted">Search any city to discover its current weather conditions.</p>
+    </section>
+
+    <form id="searchForm">
+      <input id="cityInput" placeholder="Enter city, e.g. Patna" required>
+      <button id="searchButton" type="submit">Search ↗</button>
+    </form>
+
+    <p id="status" role="status" aria-live="polite">
+      Search a city to get started.
+    </p>
+
+    <div class="suggestions">
+      <button type="button" data-city="Patna">Patna</button>
+      <button type="button" data-city="Delhi">Delhi</button>
+      <button type="button" data-city="Mumbai">Mumbai</button>
+      <button type="button" data-city="London">London</button>
+    </div>
+
+    <section id="weather" class="weather" hidden>
+      <p>CURRENT WEATHER</p>
+      <h2 id="cityName"></h2>
+      <p id="localTime"></p>
+      <div class="temperature">
+        <span id="temperature">--</span>°C
+      </div>
+      <h3 id="condition"></h3>
+      <p id="feelsLike"></p>
+
+      <div class="metrics">
+        <div class="metric">
+          Humidity
+          <strong id="humidity">--%</strong>
+        </div>
+        <div class="metric">
+          Wind Speed
+          <strong id="wind">-- km/h</strong>
+        </div>
+        <div class="metric">
+          Precipitation
+          <strong id="rain">-- mm</strong>
+        </div>
+        <div class="metric">
+          UV Index
+          <strong id="uv">--</strong>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      Built using JavaScript Fetch API, async/await and REST APIs.<br>
+      Weather data: <a href="https://open-meteo.com/">Open-Meteo</a>
+    </footer>
+  </main>
+
+  <script>
+    const form = document.getElementById("searchForm");
+    const input = document.getElementById("cityInput");
+    const searchButton = document.getElementById("searchButton");
+    const status = document.getElementById("status");
+    const weather = document.getElementById("weather");
+
+    const conditions = {
+      0: ["Clear Sky", "☀️"],
+      1: ["Mainly Clear", "🌤️"],
+      2: ["Partly Cloudy", "⛅"],
+      3: ["Overcast", "☁️"],
+      45: ["Foggy", "🌫️"],
+      48: ["Foggy", "🌫️"],
+      51: ["Light Drizzle", "🌦️"],
+      53: ["Drizzle", "🌧️"],
+      55: ["Heavy Drizzle", "🌧️"],
+      61: ["Light Rain", "🌦️"],
+      63: ["Moderate Rain", "🌧️"],
+      65: ["Heavy Rain", "🌧️"],
+      71: ["Light Snow", "🌨️"],
+      73: ["Snow", "❄️"],
+      75: ["Heavy Snow", "❄️"],
+      80: ["Rain Showers", "🌦️"],
+      81: ["Rain Showers", "🌧️"],
+      82: ["Heavy Showers", "⛈️"],
+      95: ["Thunderstorm", "⛈️"],
+      96: ["Thunderstorm with Hail", "⛈️"],
+      99: ["Severe Thunderstorm", "⛈️"]
+    };
+
+    async function fetchJSON(url) {
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error("API request failed. Please try again.");
+      }
+
+      return await response.json();
+    }
+
+    async function getWeather(city) {
+      const geoURL = new URL(
+        "https://geocoding-api.open-meteo.com/v1/search"
+      );
+
+      geoURL.search = new URLSearchParams({
+        name: city,
+        count: 1,
+        language: "en",
+        format: "json"
+      });
+
+      const geoData = await fetchJSON(geoURL);
+
+      if (!geoData.results || geoData.results.length === 0) {
+        throw new Error("City not found. Check the spelling.");
+      }
+
+      const place = geoData.results[0];
+
+      const weatherURL = new URL(
+        "https://api.open-meteo.com/v1/forecast"
+      );
+
+      weatherURL.search = new URLSearchParams({
+        latitude: place.latitude,
+        longitude: place.longitude,
+        timezone: "auto",
+        forecast_days: 1,
+        current:
+          "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m",
+        hourly: "uv_index"
+      });
+
+      const data = await fetchJSON(weatherURL);
+
+      return { place, data };
+    }
+
+    async function searchWeather(city) {
+      city = city.trim();
+
+      if (!city) {
+        status.textContent = "Please enter a city name.";
+        return;
+      }
+
+      searchButton.disabled = true;
+      status.textContent = "Fetching live weather...";
+      weather.hidden = true;
+
+      try {
+        const result = await getWeather(city);
+        const place = result.place;
+        const data = result.data;
+        const current = data.current;
+
+        const description =
+          conditions[current.weather_code] || ["Weather Update", "🌡️"];
+
+        document.getElementById("cityName").textContent =
+          [place.name, place.admin1, place.country]
+            .filter((value, index, array) =>
+              value && array.indexOf(value) === index
+            )
+            .join(", ");
+
+        document.getElementById("localTime").textContent =
+          "Local time: " +
+          new Intl.DateTimeFormat("en", {
+            dateStyle: "medium",
+            timeStyle: "short",
+            timeZone: data.timezone || "UTC"
+          }).format(new Date());
+
+        document.getElementById("temperature").textContent =
+          Math.round(current.temperature_2m);
+
+        document.getElementById("condition").textContent =
+          description[1] + " " + description[0];
+
+        document.getElementById("feelsLike").textContent =
+          "Feels like " + Math.round(current.apparent_temperature) + "°C";
+
+        document.getElementById("humidity").textContent =
+          current.relative_humidity_2m + "%";
+
+        document.getElementById("wind").textContent =
+          current.wind_speed_10m + " km/h";
+
+        document.getElementById("rain").textContent =
+          current.precipitation + " mm";
+
+        const hourIndex = Math.max(
+          0,
+          data.hourly.time.findIndex(time => time >= current.time)
+        );
+
+        document.getElementById("uv").textContent =
+          data.hourly.uv_index[hourIndex] ?? "Unavailable";
+
+        weather.hidden = false;
+        status.textContent = "Weather loaded successfully!";
+      } catch (error) {
+        status.textContent = error instanceof TypeError
+          ? "Network error. Check your internet connection."
+          : error.message;
+      } finally {
+        searchButton.disabled = false;
+      }
+    }
+
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      searchWeather(input.value);
+    });
+
+    document.querySelectorAll("[data-city]").forEach(button => {
+      button.addEventListener("click", () => {
+        input.value = button.dataset.city;
+        searchWeather(button.dataset.city);
+      });
+    });
+  </script>
+</body>
+</html>
